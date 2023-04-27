@@ -1,0 +1,92 @@
+# Understanding Smart Contract Authorization and Visibility
+
+``` javascript
+pragma solidity ^0.6.6;
+
+contract visibility {
+  
+  function add(uint _a, uint _b) private pure returns (uint){
+    return _a + _b; 
+  }
+  
+  function get_add_result(uint a, uint b) public pure returns (uint){
+    return add(a, b);
+  }   
+}
+```
+
+## Introduction: 
+    Smart contracts function as APIs that use endpoints as interfaces to their functionality. In this context, the access level of a function and its authorization to access functionality within the smart contract is important to ensure secure transactions.
+
+## Visibility
+    The compiler in newer versions of Solidity requires explicit definition of a function's visibility as one of the following: external, public, internal, or private. The visibility determines where the function is accessible from, whether it is only accessible within the current contract or accessible to other contracts.
+
+# Example
+    A simple visibility example in Remix is shown:
+
+``` javascript
+pragma solidity ^0.6.6;
+
+contract visibility {
+  
+  function add(uint _a, uint _b) private pure returns (uint){
+    return _a + _b; 
+  }
+  
+  function get_add_result(uint a, uint b) public pure returns (uint){
+    return add(a, b);
+  }   
+}
+
+```
+- The visibility.sol contract has two functions, add and `get_add_result`. The add function is set to private, which means it cannot be called directly from an external call with the contract's ABI. However, it is called via another function within the same contract at line 10. `The get_add_result` function is public and can be accessed externally.
+
+# Authorization
+Authorization to access functionality within the smart contract is not built in by default and is usually managed by reviewing the address of the caller. The address of the caller is generally the msg.sender unless coded in alternative ways.
+
+# Implementing Authorization
+    Our functions are properly using private and public variables where appropriate, but this just means we have a proper flow to our program and we have limited the visibility of functions that have no need to have direct interaction with a user. This does not stop a malicious hacker from directly accessing all of our public functions. Many of these public functions are bound to have sensitive functionality tied to financial transactions or interact with private functions that have the functionality you are trying to manipulate.
+
+    In a smart contract, we need a way to actually tell who has access to a public function in order to set up authorized transactions, for example, a bank transfer. Otherwise, you would create an account and everyone would be able to access its funds and transfer the funds out to themselves. An attacker can call any public function within the contract, even those meant for administrators only.
+
+    Some examples of administrative functionality you would not want exposed would be a self-destruct function to render a contract useless or adding a new administrative account that does have authorization to sensitive functions.
+
+    To illustrate this point, let's take a look at the following contract that has a few sensitive functions but no protection against unauthorized users.
+
+```Javascript
+pragma solidity ^0.6.6;
+
+contract noAuth {
+    mapping (address =>uint) balances;
+
+    function deposit() public payable {
+        balances[msg.sender] = balances[msg.sender]+msg.value;       
+    }
+      
+    function withdraw(uint amount) public payable {
+        msg.sender.transfer(amount);
+    }
+    
+    function kill() public {
+        selfdestruct(msg.sender);
+    }
+}
+```
+
+    The noAuth contract above is set up like a mini bank account, where you have the ability to deposit your funds and withdraw your funds. The funds are mapped to your `msg.sender` address on line 4. However, there are a few flaws with the way this contract is set up, both in authorization as well as business logic.
+
+    Let's go through the code and look at how it is set up. First, we have a `deposit` function on line 6 which accepts a value transfer via the "payable" keyword and applies the value to your current balance associated with your address. This function seems ok.
+
+    Next, we have a `withdraw` function which receives an amount and transfers that amount to the address which calls the function. However, the withdraw function has a few issues:
+
+    The withdraw function never actually checks if you have a balance associated with your address.
+    It also doesn't validate if you have enough in your balance to send the amount you're asking for.
+
+### This poses a few interesting questions:
+
+* Q. Where is this function withdrawing funds from if you don't have a balance associated with your address?
+* Q. Can you simply liquidate the funds from the account as a whole?
+
+The kill function on lines 14-16 is also problematic, as it allows anyone to destroy the contract and withdraw all the funds from the contract without any authorization checks.
+
+To prevent unauthorized access to sensitive functions and ensure proper business logic, we need to implement authorization in our smart contracts.
